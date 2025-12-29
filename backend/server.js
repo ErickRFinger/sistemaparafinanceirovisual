@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import supabase from './database/db.js';
 import authRoutes from './routes/auth.js';
 import transacoesRoutes from './routes/transacoes.js';
 import categoriasRoutes from './routes/categorias.js';
@@ -203,24 +203,10 @@ app.use((err, req, res, next) => {
 });
 
 // Iniciar servidor apenas se não estiver no Vercel
-// No Vercel, o servidor é gerenciado automaticamente
-if (!process.env.VERCEL && !process.env.VERCEL_ENV && process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, async () => {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
-
-    // Testar conexão com banco
-    await import('./database/db.js').then(({ testConnection }) => testConnection());
-
-    console.log(`📋 Rotas disponíveis:`);
-    console.log(`   - GET  /api/health`);
-    console.log(`   - POST /api/auth/register`);
-    console.log(`   - POST /api/auth/login`);
-    console.log(`   - GET  /api/transacoes`);
-    console.log(`   - GET  /api/categorias`);
-    console.log(`   - GET  /api/perfil`);
-    console.log(`   - GET  /api/metas`);
-    console.log(`   - GET  /api/bancos`);
-    console.log(`   - GET  /api/gastos-recorrentes`);
+    console.log(`📋 Rotas disponíveis: /api/health, /api/auth/login, etc`);
   });
 
   // Graceful shutdown

@@ -58,19 +58,19 @@ router.post('/register', [
     if (userError) {
       console.error('Erro ao inserir usuário:', userError);
       console.error('Detalhes do erro:', JSON.stringify(userError, null, 2));
-      
+
       if (userError.code === '23505' || userError.message?.includes('duplicate')) {
         return res.status(400).json({ error: 'Email já cadastrado' });
       }
-      
+
       if (userError.code === '42501' || userError.message?.includes('row-level security')) {
-        return res.status(500).json({ 
-          error: 'Erro de permissão no banco de dados. Verifique as configurações do RLS no Supabase.' 
+        return res.status(500).json({
+          error: 'Erro de permissão no banco de dados. Verifique as configurações do RLS no Supabase.'
         });
       }
-      
-      return res.status(500).json({ 
-        error: `Erro ao registrar usuário: ${userError.message || 'Erro desconhecido'}` 
+
+      return res.status(500).json({
+        error: `Erro ao registrar usuário: ${userError.message || 'Erro desconhecido'}`
       });
     }
 
@@ -122,16 +122,16 @@ router.post('/register', [
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
     console.error('Stack:', error.stack);
-    
+
     // Garantir que sempre retornamos uma string de erro
     let errorMessage = 'Erro ao registrar usuário';
-    
+
     if (error.message) {
       errorMessage = typeof error.message === 'string' ? error.message : JSON.stringify(error.message);
     } else if (typeof error === 'string') {
       errorMessage = error;
     }
-    
+
     // Passar o erro para o middleware de tratamento de erros
     throw new Error(errorMessage);
   }
@@ -163,44 +163,41 @@ router.post('/login', [
       .single();
 
     if (userError) {
-      console.error('Erro ao buscar usuário:', userError);
-      console.error('Detalhes do erro:', JSON.stringify(userError, null, 2));
-      
+      console.error('❌ [AUTH] Erro ao buscar usuário no Supabase:', JSON.stringify(userError, null, 2));
+
       // Se não encontrou o usuário, retorna erro genérico por segurança
       if (userError.code === 'PGRST116') {
         return res.status(401).json({ error: 'Email ou senha inválidos' });
       }
-      
-      if (userError.code === '42501' || userError.message?.includes('row-level security')) {
-        return res.status(500).json({ 
-          error: 'Erro de permissão no banco de dados. Verifique as configurações do RLS no Supabase.' 
-        });
-      }
-      
-      return res.status(500).json({ 
-        error: `Erro ao buscar usuário: ${userError.message || 'Erro desconhecido'}` 
+
+      return res.status(500).json({
+        error: `Erro ao buscar usuário: ${userError.message || 'Erro desconhecido'}`
       });
     }
 
     if (!user) {
+      console.error('❌ [AUTH] Usuário não encontrado, mas sem erro explícito (PGRST116 não capturado?)');
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
     // Verificar senha
     if (!user.senha) {
+      console.error('❌ [AUTH] Usuário encontrado mas sem hash de senha no banco');
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
     const senhaValida = await bcrypt.compare(senha, user.senha);
     if (!senhaValida) {
+      console.warn('⚠️ [AUTH] Senha inválida para usuário:', email);
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
     // Verificar se JWT_SECRET está configurado
     if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET não configurado!');
-      return res.status(500).json({ 
-        error: 'Erro de configuração do servidor. JWT_SECRET não está definido.' 
+      console.error('❌ [AUTH] JWT_SECRET não configurado no servidor!');
+      // Retornar 500 explícito para sabermos que é config
+      return res.status(500).json({
+        error: 'Erro interno de configuração: JWT_SECRET ausente'
       });
     }
 
@@ -211,6 +208,8 @@ router.post('/login', [
       { expiresIn: '7d' }
     );
 
+    console.log('✅ [AUTH] Login realizado com sucesso para:', email);
+
     res.json({
       token,
       user: {
@@ -219,19 +218,14 @@ router.post('/login', [
         email: user.email
       }
     });
+
   } catch (error) {
-    console.error('Erro ao fazer login:', error);
-    console.error('Stack:', error.stack);
-    
-    // Garantir que sempre retornamos uma string de erro
-    let errorMessage = 'Erro interno do servidor. Tente novamente.';
-    
-    if (error.message) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    }
-    
+    console.error('❌ [AUTH] Erro crítico (catch) no login:', error);
+    console.error('   Stack:', error.stack);
+
+    let errorMessage = 'Erro interno do servidor';
+    if (error.message) errorMessage = error.message;
+
     res.status(500).json({ error: errorMessage });
   }
 }));

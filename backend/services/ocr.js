@@ -1,5 +1,3 @@
-import Tesseract from 'tesseract.js';
-import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -10,14 +8,17 @@ const __dirname = path.dirname(__filename);
 // Processar imagem para melhorar OCR
 async function processImage(imagePath) {
   try {
+    // Dynamic import for sharp
+    const { default: sharp } = await import('sharp');
+
     const processedPath = path.join(path.dirname(imagePath), 'processed-' + path.basename(imagePath));
-    
+
     await sharp(imagePath)
       .greyscale()
       .normalize()
       .sharpen()
       .toFile(processedPath);
-    
+
     return processedPath;
   } catch (error) {
     console.error('Erro ao processar imagem:', error);
@@ -45,7 +46,7 @@ function extractValue(text) {
       // Remover pontos e substituir vírgula por ponto
       valueStr = valueStr.replace(/\./g, '').replace(',', '.');
       const value = parseFloat(valueStr);
-      
+
       if (value > maxValue && value < 1000000) { // Limite razoável
         maxValue = value;
       }
@@ -60,7 +61,7 @@ function extractDescription(text) {
   // Remover valores monetários
   let desc = text.replace(/R\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{2})?/gi, '');
   desc = desc.replace(/\d{1,3}(?:\.\d{3})*(?:,\d{2})?/g, '');
-  
+
   // Procurar por palavras-chave comuns
   const keywords = [
     'compra', 'pagamento', 'nota fiscal', 'cupom fiscal',
@@ -71,14 +72,14 @@ function extractDescription(text) {
   // Extrair linhas que contenham palavras-chave
   const lines = desc.split('\n').filter(line => {
     const lowerLine = line.toLowerCase().trim();
-    return lowerLine.length > 5 && 
-           (keywords.some(kw => lowerLine.includes(kw)) || 
-            lowerLine.length > 10);
+    return lowerLine.length > 5 &&
+      (keywords.some(kw => lowerLine.includes(kw)) ||
+        lowerLine.length > 10);
   });
 
   // Pegar as primeiras linhas relevantes
   const relevantLines = lines.slice(0, 3).join(' ').trim();
-  
+
   if (relevantLines.length > 0) {
     return relevantLines.substring(0, 100); // Limitar a 100 caracteres
   }
@@ -91,15 +92,15 @@ function extractDescription(text) {
 // Detectar tipo (receita ou despesa)
 function detectType(text) {
   const lowerText = text.toLowerCase();
-  
+
   // Palavras que indicam receita
   const receitaKeywords = ['deposito', 'depósito', 'transferencia', 'transferência', 'recebido', 'pagamento recebido'];
-  
+
   // Por padrão, notas fiscais são despesas
   if (receitaKeywords.some(kw => lowerText.includes(kw))) {
     return 'receita';
   }
-  
+
   return 'despesa';
 }
 
@@ -107,12 +108,16 @@ function detectType(text) {
 export async function processReceipt(imagePath) {
   try {
     console.log('Processando imagem:', imagePath);
-    
+
     // Processar imagem para melhorar OCR
     const processedPath = await processImage(imagePath);
-    
+
     // Executar OCR
     console.log('Executando OCR...');
+
+    // Dynamic import for Tesseract
+    const { default: Tesseract } = await import('tesseract.js');
+
     const { data: { text } } = await Tesseract.recognize(
       processedPath,
       'por', // Português

@@ -82,6 +82,25 @@ app.get('/api/debug-env', (req, res) => {
   });
 });
 
+// Rota de teste direto de Banco de Dados (Isolada)
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const start = Date.now();
+    const { data, error } = await supabase.from('users').select('count', { count: 'exact' }).limit(1);
+    const duration = Date.now() - start;
+
+    if (error) {
+      console.error('❌ [DEBUG DB] Erro:', error);
+      return res.status(500).json({ status: 'error', error: error.message, details: error });
+    }
+
+    res.json({ status: 'success', duration: duration + 'ms', data });
+  } catch (err) {
+    console.error('❌ [DEBUG DB] Exceção:', err);
+    res.status(500).json({ status: 'exception', error: err.message });
+  }
+});
+
 // Registrar todas as rotas da API
 console.log('📝 Registrando rotas da API...');
 
